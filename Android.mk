@@ -135,6 +135,24 @@ LOCAL_STATIC_LIBRARIES := \
     libc
 include $(BUILD_EXECUTABLE)
 
+###############################################################################
+# Build PDi-TAB(R)2 Bootloader Recovery library 
+###############################################################################
+include $(CLEAR_VARS)
+
+# Edify extension functions for doing bootloader updates on ar6mx devices
+LOCAL_MODULE_TAGS := optional
+LOCAL_C_INCLUDES += bootable/recovery
+LOCAL_SRC_FILES := bootloader_ar6mx_updater.c \
+                   bootloader_ar6mx.c
+
+# should match TARGET_RECOVERY_UPDATER_LIBS set in BoardConfig.mk
+LOCAL_MODULE := librecovery_updater_ar6mx
+
+include $(BUILD_STATIC_LIBRARY)
+###############################################################################
+# End building PDi-TAB(R)2 Bootloader Recovery library
+###############################################################################
 
 include $(LOCAL_PATH)/minui/Android.mk \
     $(LOCAL_PATH)/minzip/Android.mk \
