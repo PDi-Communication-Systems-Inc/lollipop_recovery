@@ -89,6 +89,9 @@ static void set_displayed_framebuffer(unsigned n)
     if (ioctl(fb_fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
         perror("active fb swap failed");
     }
+    else {
+       fprintf(stdout, "set_displayed_framebuffer(): ioctl PUT_VSCREENINFO issued n=%d\n", n);
+    }
     displayed_buffer = n;
 }
 
@@ -132,7 +135,8 @@ static gr_surface fbdev_init(minui_backend* backend) {
       vi.blue.length    = 8;
       vi.transp.offset  = 0;
       vi.transp.length  = 8;
-      fprintf(stdout, "Using Pixel Format BGRA 8888\n");
+      fprintf(stdout, "Using Pixel Format BGRA 8888 offsets are red=%d green=%d blue=%d\n", 
+              vi.red.offset, vi.green.offset, vi.blue.offset);
     } else if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_RGBX_8888) {
       vi.red.offset     = 24;
       vi.red.length     = 8;
@@ -163,16 +167,26 @@ static gr_surface fbdev_init(minui_backend* backend) {
         close(fd);
         return NULL;
     }
+    else {
+       fprintf(stdout, "fbdev_init(): No error from FBIOPUT_VSCREENINFO\n"); 
+    }
 
     if (ioctl(fd, FBIOGET_FSCREENINFO, &fi) < 0) {
         perror("failed to get fb0 info");
         close(fd);
         return NULL;
     }
+    else {
+        fprintf(stdout, "No error with FBIOGET_FSCREENINFO id=%s\n", fi.id);
+    } 
+
     if (ioctl(fd, FBIOGET_VSCREENINFO, &vi) < 0) {
         perror("failed to get fb0 info");
         close(fd);
         return NULL;
+    }
+    else {
+        fprintf(stdout, "fbdev_init(): No error with FBIOGET_VSCREENINFO\n");
     }
 
     // We print this out for informational purposes only, but
@@ -190,11 +204,13 @@ static gr_surface fbdev_init(minui_backend* backend) {
            "  vi.bits_per_pixel = %d\n"
            "  vi.red.offset   = %3d   .length = %3d\n"
            "  vi.green.offset = %3d   .length = %3d\n"
-           "  vi.blue.offset  = %3d   .length = %3d\n",
+           "  vi.blue.offset  = %3d   .length = %3d\n"
+           "  vi.transp.offset = %3d  .length = %3d\n",
            vi.bits_per_pixel,
            vi.red.offset, vi.red.length,
            vi.green.offset, vi.green.length,
-           vi.blue.offset, vi.blue.length);
+           vi.blue.offset, vi.blue.length, 
+           vi.transp.offset, vi.transp.length);
 
     bits = mmap(0, fi.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (bits == MAP_FAILED) {
