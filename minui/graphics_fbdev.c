@@ -83,6 +83,41 @@ static void set_displayed_framebuffer(unsigned n)
 {
     if (n > 1 || !double_buffered) return;
 
+  /* Handle differences in hdmi and lvds panel
+      types */
+   if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_BGRA_8888) {
+      vi.red.offset     = 8;
+      vi.red.length     = 8;
+      vi.green.offset   = 16; 
+      vi.green.length   = 8;
+      vi.blue.offset    = 24; 
+      vi.blue.length    = 8;
+      vi.transp.offset  = 0;
+      vi.transp.length  = 8;
+      fprintf(stdout, "Using Pixel Format BGRA 8888 offsets are red=%d green=%d blue=%d\n", 
+              vi.red.offset, vi.green.offset, vi.blue.offset);
+    } else if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_RGBX_8888) {
+      vi.red.offset     = 24; 
+      vi.red.length     = 8;
+      vi.green.offset   = 16; 
+      vi.green.length   = 8;
+      vi.blue.offset    = 8;
+      vi.blue.length    = 8;
+      vi.transp.offset  = 0;
+      vi.transp.length  = 8;
+      fprintf(stdout, "Using Pixel Format RGBX 8888\n");
+    } else { /* RGB565*/
+      vi.red.offset     = 11; 
+      vi.red.length     = 5;
+      vi.green.offset   = 5;
+      vi.green.length   = 6;
+      vi.blue.offset    = 0;
+      vi.blue.length    = 5;
+      vi.transp.offset  = 0;
+      vi.transp.length  = 0;
+      fprintf(stdout, "Using Pixel Format RGB 565\n");
+    }   
+
     vi.yres_virtual = gr_framebuffer[0].height * 2;
     vi.yoffset = n * gr_framebuffer[0].height;
     vi.bits_per_pixel = gr_framebuffer[0].pixel_bytes * 8;
@@ -162,13 +197,17 @@ static gr_surface fbdev_init(minui_backend* backend) {
     vi.yres_virtual = vi.yres * 2;
     vi.activate = FB_ACTIVATE_NOW;
 
+    fprintf(stdout, "checkpoint 2...red=%d green=%d blue=%d\n", 
+            vi.red.offset, vi.green.offset, vi.blue.offset);
     if (ioctl(fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
         perror("failed to put fb0 info");
         close(fd);
         return NULL;
     }
     else {
-       fprintf(stdout, "fbdev_init(): No error from FBIOPUT_VSCREENINFO\n"); 
+       fprintf(stdout, "fbdev_init(): No error from FBIOPUT_VSCREENINFO\n");
+       fprintf(stdout, "checkpoint 3...red=%d green=%d blue=%d\n", 
+               vi.red.offset, vi.green.offset, vi.blue.offset); 
     }
 
     if (ioctl(fd, FBIOGET_FSCREENINFO, &fi) < 0) {
