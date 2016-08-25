@@ -11,7 +11,7 @@ Value* WriteBootloaderFn(const char* name, State* state, int argc, Expr* argv[])
    char *srcPath = NULL, *dstPath = NULL;
    unsigned long seek = 0, skip = 0;
    const char *btLdrFrRoNode = "/sys/block/mmcblk3boot0/force_ro";
-   //const char *btLdrNodePath = "/sys/devices/platform/sdhci-esdhc-imx.3/mmc_host/mmc0/mmc0:0001/boot_config";
+   const char *btLdrEnableBoot = "/sys/block/mmcblk3/device/boot_config";
    int result = -1;
 
    Value* srcPathVal;
@@ -37,18 +37,25 @@ Value* WriteBootloaderFn(const char* name, State* state, int argc, Expr* argv[])
    seek = atol(seekVal->data);
    skip = atol(skipVal->data);
 
-   // write the new bootloader
+   // write the new bootloader, unlock to write, write the file to emmc, and relock
    result = write_sysfs(0, btLdrFrRoNode);
    if (result < 0) {
-      return ErrorAbort(state, "Unlocking MMC boot partitions failed");
+      return ErrorAbort(state, "Unlocking MMC boot partition failed");
    }
    result = update_bootloader(srcPath, dstPath, seek, skip);
    if (result < 0) {
-      return ErrorAbort(state, "Writing the bootloader failed, your unit may now be bricked");
+      return ErrorAbort(state, "Writing the bootloader from %s to %s with seek=%l and skip=%l failed, your unit may now be bricked result=%d", 
+                        srcPath, dstPath, seek, skip, result);
    }
    result = write_sysfs(1, btLdrFrRoNode);
    if (result < 0) {
-      return ErrorAbort(state, "Writing the bootloader failed, your unit may now be bricked");
+      return ErrorAbort(state, "Relocking MMC boot partition failed");
+   }   
+  
+   // make sure bootloader is bootable
+   result = write_sysfs(8, btLdrEnableBoot);
+   if (result < 0) {
+      return ErrorAbort(state, "Relocking MMC boot partition failed");
    }   
 
    // be a good citizen, free your resources
