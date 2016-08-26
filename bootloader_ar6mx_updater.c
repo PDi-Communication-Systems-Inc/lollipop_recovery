@@ -44,7 +44,7 @@ Value* WriteBootloaderFn(const char* name, State* state, int argc, Expr* argv[])
    }
    result = update_bootloader(srcPath, dstPath, seek, skip);
    if (result < 0) {
-      return ErrorAbort(state, "Writing the bootloader from %s to %s with seek=%l and skip=%l failed, your unit may now be bricked result=%d", 
+      return ErrorAbort(state, "Writing the bootloader from %s to %s with seek=%d and skip=%d failed, your unit may now be bricked result=%d", 
                         srcPath, dstPath, seek, skip, result);
    }
    result = write_sysfs(1, btLdrFrRoNode);
