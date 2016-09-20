@@ -36,6 +36,7 @@
 #include "minui/minui.h"
 #include "screen_ui.h"
 #include "ui.h"
+#include "iota.h"
 
 #define UI_WAIT_KEY_TIMEOUT_SEC    120
 
@@ -60,6 +61,7 @@ RecoveryUI::RecoveryUI() :
 }
 
 void RecoveryUI::Init() {
+    // Print("Init(): entered\n");
     ev_init(input_callback, NULL);
     pthread_create(&input_t, NULL, input_thread, NULL);
 }
@@ -119,6 +121,8 @@ void RecoveryUI::process_key(int key_code, int updown) {
     bool register_key = false;
     bool long_press = false;
     bool reboot_enabled;
+    // PDi mrobbeloth -- keep for debug purposes
+    // Print("process_key(): key %d\n", key_code);
 
     pthread_mutex_lock(&key_queue_mutex);
     key_pressed[key_code] = updown;
@@ -282,10 +286,15 @@ void RecoveryUI::FlushKeys() {
 // - Press power seven times in a row to reboot.
 // - Alternate vol-up and vol-down seven times to mount /system.
 RecoveryUI::KeyAction RecoveryUI::CheckKey(int key) {
-    fprintf(stdout, "CheckKey(): Key pressed=%d\n", key);
+    Print("CheckKey(): Key pressed=%d\n", key);
+    char keybuf[20];
+    iota(key, keybuf);
+
+/*
     if ((IsKeyPressed(KEY_POWER) && key == KEY_VOLUMEUP) || key == KEY_HOME) {
         return TOGGLE;
     }
+*/
 
     if (key == KEY_POWER) {
         pthread_mutex_lock(&key_queue_mutex);

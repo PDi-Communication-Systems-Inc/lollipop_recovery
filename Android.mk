@@ -33,6 +33,7 @@ LOCAL_SRC_FILES := \
     recovery.cpp \
     bootloader.cpp \
     install.cpp \
+    iota.c \
     roots.cpp \
     ui.cpp \
     screen_ui.cpp \
@@ -125,6 +126,7 @@ LOCAL_SRC_FILES := \
     verifier_test.cpp \
     asn1_decoder.cpp \
     verifier.cpp \
+    iota.c \
     ui.cpp
 LOCAL_STATIC_LIBRARIES := \
     libmincrypt \
