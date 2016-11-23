@@ -302,6 +302,8 @@ rotate_last_logs(int max) {
 
 static void
 copy_logs() {
+    char* const cmd[] = {"logcat", "-d", "-f", "/cache/recovery/logcat.txt", "\0"};
+    
     // Copy logs to cache so the system can find out what happened.
     copy_log_file(TEMPORARY_LOG_FILE, LOG_FILE, true);
     copy_log_file(TEMPORARY_LOG_FILE, LAST_LOG_FILE, false);
@@ -310,6 +312,7 @@ copy_logs() {
     chown(LOG_FILE, 1000, 1000);   // system user
     chmod(LAST_LOG_FILE, 0640);
     chmod(LAST_INSTALL_FILE, 0644);
+    execvp(cmd[0], cmd);
     sync();
 }
 
@@ -336,10 +339,13 @@ finish_recovery(const char *send_intent) {
     if (locale != NULL) {
         LOGI("Saving locale \"%s\"\n", locale);
         FILE* fp = fopen_path(LOCALE_FILE, "w");
-        fwrite(locale, 1, strlen(locale), fp);
-        fflush(fp);
-        fsync(fileno(fp));
-        check_and_fclose(fp, LOCALE_FILE);
+        /* handle an error if say cache was corrupt */
+	if (fp != NULL) {
+            fwrite(locale, 1, strlen(locale), fp);
+            fflush(fp);
+            fsync(fileno(fp));
+            check_and_fclose(fp, LOCALE_FILE);
+       }
     }
 
     copy_logs();
@@ -1020,14 +1026,9 @@ main(int argc, char **argv) {
         if (status != INSTALL_SUCCESS) {
             ui->Print("Installation aborted.\n");
 
-            // If this is an eng or userdebug build, then automatically
-            // turn the text display on if the script fails so the error
-            // message is visible.
             char buffer[PROPERTY_VALUE_MAX+1];
             property_get("ro.build.fingerprint", buffer, "");
-            if (strstr(buffer, ":userdebug/") || strstr(buffer, ":eng/")) {
-                ui->ShowText(true);
-            }
+            ui->ShowText(true);
         }
     } else if (wipe_data) {
         if (device->WipeData()) status = INSTALL_ERROR;
@@ -1073,5 +1074,7 @@ main(int argc, char **argv) {
             break;
     }
     sleep(5); // should reboot before this finishes
+    char* const cmd[] = {"logcat", "-d", "-f", "/cache/recovery/logcat.txt"};
+    execvp(cmd[0], cmd);
     return EXIT_SUCCESS;
 }

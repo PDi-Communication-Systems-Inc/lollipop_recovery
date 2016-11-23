@@ -242,7 +242,9 @@ really_install_package(const char *path, int* wipe_cache, bool needs_mount)
      */
     ui->Print("Installing update...\n");
     ui->SetEnableReboot(false);
+    ui->Print("Updating binaries...\n");
     int result = try_update_binary(path, &zip, wipe_cache);
+    ui->Print("Done updating binaries...\n");
     ui->SetEnableReboot(true);
     ui->Print("\n");
 
