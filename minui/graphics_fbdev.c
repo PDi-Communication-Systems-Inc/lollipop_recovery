@@ -30,8 +30,6 @@
 #include <linux/fb.h>
 #include <linux/kd.h>
 
-#include <pixelflinger/pixelflinger.h>
-
 #include "minui.h"
 #include "graphics.h"
 
@@ -55,17 +53,6 @@ static minui_backend my_backend = {
     .exit = fbdev_exit,
 };
 
-#if defined(RECOVERY_BGRA)
-#define PIXEL_FORMAT GGL_PIXEL_FORMAT_BGRA_8888
-#define PIXEL_SIZE   4
-#elif defined(RECOVERY_RGBX)
-#define PIXEL_FORMAT GGL_PIXEL_FORMAT_RGBX_8888
-#define PIXEL_SIZE   4
-#else
-#define PIXEL_FORMAT GGL_PIXEL_FORMAT_RGB_565
-#define PIXEL_SIZE   2
-#endif
-
 minui_backend* open_fbdev() {
     return &my_backend;
 }
@@ -83,49 +70,11 @@ static void set_displayed_framebuffer(unsigned n)
 {
     if (n > 1 || !double_buffered) return;
 
-  /* Handle differences in hdmi and lvds panel
-      types */
-   if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_BGRA_8888) {
-      vi.red.offset     = 8;
-      vi.red.length     = 8;
-      vi.green.offset   = 16; 
-      vi.green.length   = 8;
-      vi.blue.offset    = 24; 
-      vi.blue.length    = 8;
-      vi.transp.offset  = 0;
-      vi.transp.length  = 8;
-      fprintf(stdout, "Using Pixel Format BGRA 8888 offsets are red=%d green=%d blue=%d\n", 
-              vi.red.offset, vi.green.offset, vi.blue.offset);
-    } else if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_RGBX_8888) {
-      vi.red.offset     = 24; 
-      vi.red.length     = 8;
-      vi.green.offset   = 16; 
-      vi.green.length   = 8;
-      vi.blue.offset    = 8;
-      vi.blue.length    = 8;
-      vi.transp.offset  = 0;
-      vi.transp.length  = 8;
-      fprintf(stdout, "Using Pixel Format RGBX 8888\n");
-    } else { /* RGB565*/
-      vi.red.offset     = 11; 
-      vi.red.length     = 5;
-      vi.green.offset   = 5;
-      vi.green.length   = 6;
-      vi.blue.offset    = 0;
-      vi.blue.length    = 5;
-      vi.transp.offset  = 0;
-      vi.transp.length  = 0;
-      fprintf(stdout, "Using Pixel Format RGB 565\n");
-    }   
-
     vi.yres_virtual = gr_framebuffer[0].height * 2;
     vi.yoffset = n * gr_framebuffer[0].height;
     vi.bits_per_pixel = gr_framebuffer[0].pixel_bytes * 8;
     if (ioctl(fb_fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
         perror("active fb swap failed");
-    }
-    else {
-       fprintf(stdout, "set_displayed_framebuffer(): ioctl PUT_VSCREENINFO issued n=%d\n", n);
     }
     displayed_buffer = n;
 }
@@ -136,21 +85,10 @@ static gr_surface fbdev_init(minui_backend* backend) {
 
     struct fb_fix_screeninfo fi;
 
-    /* PDi mrobbeloth -- try both possible frame
-       buffers given an hdmi or lvds display 
-       could work off one or the other depending on
-       setup */
     fd = open("/dev/graphics/fb0", O_RDWR);
     if (fd < 0) {
-        perror("Trouble opening fb0, trying fb0");
-        fd = open("/dev/graphics/fb2", O_RDWR);
-        if (fd < 0) {
-           perror("cannot open fb2");
-           return -1;
-        }
-    }
-    else {
-       fprintf(stderr, "opened fb2 successfully\n");
+        perror("cannot open fb0");
+        return NULL;
     }
 
     if (ioctl(fd, FBIOGET_VSCREENINFO, &vi) < 0) {
@@ -159,55 +97,23 @@ static gr_surface fbdev_init(minui_backend* backend) {
         return NULL;
     }
 
-   /* Handle differences in hdmi and lvds panel
-      types */
-   if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_BGRA_8888) {
-      vi.red.offset     = 8;
-      vi.red.length     = 8;
-      vi.green.offset   = 16;
-      vi.green.length   = 8;
-      vi.blue.offset    = 24;
-      vi.blue.length    = 8;
-      vi.transp.offset  = 0;
-      vi.transp.length  = 8;
-      fprintf(stdout, "Using Pixel Format BGRA 8888 offsets are red=%d green=%d blue=%d\n", 
-              vi.red.offset, vi.green.offset, vi.blue.offset);
-    } else if (PIXEL_FORMAT == GGL_PIXEL_FORMAT_RGBX_8888) {
-      vi.red.offset     = 24;
-      vi.red.length     = 8;
-      vi.green.offset   = 16;
-      vi.green.length   = 8;
-      vi.blue.offset    = 8;
-      vi.blue.length    = 8;
-      vi.transp.offset  = 0;
-      vi.transp.length  = 8;
-      fprintf(stdout, "Using Pixel Format RGBX 8888\n");
-    } else { /* RGB565*/
-      vi.red.offset     = 11;
-      vi.red.length     = 5;
-      vi.green.offset   = 5;
-      vi.green.length   = 6;
-      vi.blue.offset    = 0;
-      vi.blue.length    = 5;
-      vi.transp.offset  = 0;
-      vi.transp.length  = 0;
-      fprintf(stdout, "Using Pixel Format RGB 565\n");
-    }
+    vi.red.offset     = 11;
+    vi.red.length     = 5;
+    vi.green.offset   = 5;
+    vi.green.length   = 6;
+    vi.blue.offset    = 0;
+    vi.blue.length    = 5;
+    vi.transp.offset  = 0;
+    vi.transp.length  = 0;
+    vi.bits_per_pixel = 16;
     vi.xres_virtual = vi.xres;
     vi.yres_virtual = vi.yres * 2;
     vi.activate = FB_ACTIVATE_NOW;
 
-    fprintf(stdout, "checkpoint 2...red=%d green=%d blue=%d\n", 
-            vi.red.offset, vi.green.offset, vi.blue.offset);
     if (ioctl(fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
         perror("failed to put fb0 info");
         close(fd);
         return NULL;
-    }
-    else {
-       fprintf(stdout, "fbdev_init(): No error from FBIOPUT_VSCREENINFO\n");
-       fprintf(stdout, "checkpoint 3...red=%d green=%d blue=%d\n", 
-               vi.red.offset, vi.green.offset, vi.blue.offset); 
     }
 
     if (ioctl(fd, FBIOGET_FSCREENINFO, &fi) < 0) {
@@ -215,17 +121,10 @@ static gr_surface fbdev_init(minui_backend* backend) {
         close(fd);
         return NULL;
     }
-    else {
-        fprintf(stdout, "No error with FBIOGET_FSCREENINFO id=%s\n", fi.id);
-    } 
-
     if (ioctl(fd, FBIOGET_VSCREENINFO, &vi) < 0) {
         perror("failed to get fb0 info");
         close(fd);
         return NULL;
-    }
-    else {
-        fprintf(stdout, "fbdev_init(): No error with FBIOGET_VSCREENINFO\n");
     }
 
     // We print this out for informational purposes only, but
@@ -239,17 +138,15 @@ static gr_surface fbdev_init(minui_backend* backend) {
     // If you have a device that actually *needs* another pixel format
     // (ie, BGRX, or 565), patches welcome...
 
-    printf("fb0 reports:\n"
+    printf("fb0 reports (possibly inaccurate):\n"
            "  vi.bits_per_pixel = %d\n"
            "  vi.red.offset   = %3d   .length = %3d\n"
            "  vi.green.offset = %3d   .length = %3d\n"
-           "  vi.blue.offset  = %3d   .length = %3d\n"
-           "  vi.transp.offset = %3d  .length = %3d\n",
+           "  vi.blue.offset  = %3d   .length = %3d\n",
            vi.bits_per_pixel,
            vi.red.offset, vi.red.length,
            vi.green.offset, vi.green.length,
-           vi.blue.offset, vi.blue.length, 
-           vi.transp.offset, vi.transp.length);
+           vi.blue.offset, vi.blue.length);
 
     bits = mmap(0, fi.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (bits == MAP_FAILED) {
