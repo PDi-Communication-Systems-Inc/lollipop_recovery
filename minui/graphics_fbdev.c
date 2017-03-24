@@ -79,51 +79,91 @@ static void set_displayed_framebuffer(unsigned n)
     displayed_buffer = n;
 }
 
+static void dump_variable_screeninfo(){
+
+    printf("fb0 reports (possibly inaccurate):\n"
+           "  vi.bits_per_pixel = %d\n"
+           "  vi.red.offset   = %3d   .length = %3d\n"
+           "  vi.green.offset = %3d   .length = %3d\n"
+           "  vi.blue.offset  = %3d   .length = %3d\n",
+           vi.bits_per_pixel,
+           vi.red.offset, vi.red.length,
+           vi.green.offset, vi.green.length,
+           vi.blue.offset, vi.blue.length);
+
+}
+
+static void setup_variable_screeninfo() {
+
+    // for P19 LVDS
+#if defined(RECOVERY_BGRA)
+    printf("Defining RECOVERY_BGRA\n");
+    vi.red.offset     = 16;
+    vi.red.length     = 8;
+    vi.green.offset   = 8;
+    vi.green.length   = 8;
+    vi.blue.offset    = 0;
+    vi.blue.length    = 8;
+    vi.transp.offset  = 24;
+    vi.transp.length  = 8;
+    vi.bits_per_pixel = 32;
+    vi.xres_virtual = vi.xres;
+    vi.yres_virtual = vi.yres * 2;
+    vi.activate = FB_ACTIVATE_NOW;
+#elif defined(RECOVERY_RGBX)
+    // for P14T2 HDMI
+    printf("Defining RECOVERY_RGBA 8888\n");
+    vi.red.offset     = 0;
+    vi.red.length     = 8;
+    vi.green.offset   = 8;
+    vi.green.length   = 8;
+    vi.blue.offset    = 16;
+    vi.blue.length    = 8;
+    vi.transp.offset  = 24;
+    vi.transp.length  = 8;
+    vi.bits_per_pixel = 32;
+    vi.xres_virtual = vi.xres;
+    vi.yres_virtual = vi.yres * 2;
+    vi.activate = FB_ACTIVATE_NOW;
+#else
+    printf("Defining else...\n");
+    vi.grayscale = 1;
+    vi.bits_per_pixel = 8;
+    vi.xres_virtual = vi.xres;
+    vi.yres_virtual = vi.yres * 2;
+    vi.activate = FB_ACTIVATE_NOW;
+#endif
+
+    if (ioctl(fb_fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
+        perror("setting variable screen info failed");
+    }
+    else {
+        dump_variable_screeninfo();
+    }
+
+   return;
+}
+
 static gr_surface fbdev_init(minui_backend* backend) {
-    int fd;
     void *bits;
 
     struct fb_fix_screeninfo fi;
 
-    fd = open("/dev/graphics/fb0", O_RDWR);
-    if (fd < 0) {
+    fb_fd = open("/dev/graphics/fb0", O_RDWR);
+    if (fb_fd < 0) {
         perror("cannot open fb0");
         return NULL;
     }
 
-    if (ioctl(fd, FBIOGET_VSCREENINFO, &vi) < 0) {
+    if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &fi) < 0) {
         perror("failed to get fb0 info");
-        close(fd);
+        close(fb_fd);
         return NULL;
-    }
+    }   
 
-    vi.red.offset     = 11;
-    vi.red.length     = 5;
-    vi.green.offset   = 5;
-    vi.green.length   = 6;
-    vi.blue.offset    = 0;
-    vi.blue.length    = 5;
-    vi.transp.offset  = 0;
-    vi.transp.length  = 0;
-    vi.bits_per_pixel = 16;
-    vi.xres_virtual = vi.xres;
-    vi.yres_virtual = vi.yres * 2;
-    vi.activate = FB_ACTIVATE_NOW;
-
-    if (ioctl(fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
-        perror("failed to put fb0 info");
-        close(fd);
-        return NULL;
-    }
-
-    if (ioctl(fd, FBIOGET_FSCREENINFO, &fi) < 0) {
+    if (ioctl(fb_fd, FBIOGET_VSCREENINFO, &vi) < 0) {
         perror("failed to get fb0 info");
-        close(fd);
-        return NULL;
-    }
-    if (ioctl(fd, FBIOGET_VSCREENINFO, &vi) < 0) {
-        perror("failed to get fb0 info");
-        close(fd);
+        close(fb_fd);
         return NULL;
     }
 
@@ -138,20 +178,13 @@ static gr_surface fbdev_init(minui_backend* backend) {
     // If you have a device that actually *needs* another pixel format
     // (ie, BGRX, or 565), patches welcome...
 
-    printf("fb0 reports (possibly inaccurate):\n"
-           "  vi.bits_per_pixel = %d\n"
-           "  vi.red.offset   = %3d   .length = %3d\n"
-           "  vi.green.offset = %3d   .length = %3d\n"
-           "  vi.blue.offset  = %3d   .length = %3d\n",
-           vi.bits_per_pixel,
-           vi.red.offset, vi.red.length,
-           vi.green.offset, vi.green.length,
-           vi.blue.offset, vi.blue.length);
+    setup_variable_screeninfo();
+    dump_variable_screeninfo();
 
-    bits = mmap(0, fi.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    bits = mmap(0, fi.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, 0);
     if (bits == MAP_FAILED) {
         perror("failed to mmap framebuffer");
-        close(fd);
+        close(fb_fd);
         return NULL;
     }
 
@@ -166,6 +199,7 @@ static gr_surface fbdev_init(minui_backend* backend) {
 
     /* check if we can use double buffering */
     if (vi.yres * fi.line_length * 2 <= fi.smem_len) {
+        printf("Using double buffering\n");
         double_buffered = true;
 
         memcpy(gr_framebuffer+1, gr_framebuffer, sizeof(GRSurface));
@@ -175,6 +209,7 @@ static gr_surface fbdev_init(minui_backend* backend) {
         gr_draw = gr_framebuffer+1;
 
     } else {
+        printf("Not using double buffering, flipping instead\n");
         double_buffered = false;
 
         // Without double-buffering, we allocate RAM for a buffer to
@@ -191,7 +226,6 @@ static gr_surface fbdev_init(minui_backend* backend) {
     }
 
     memset(gr_draw->data, 0, gr_draw->height * gr_draw->row_bytes);
-    fb_fd = fd;
     set_displayed_framebuffer(0);
 
     printf("framebuffer: %d (%d x %d)\n", fb_fd, gr_draw->width, gr_draw->height);
@@ -212,21 +246,11 @@ static gr_surface fbdev_flip(minui_backend* backend __unused) {
     } else {
         // Copy from the in-memory surface to the framebuffer.
 
-#if defined(RECOVERY_BGRA)
-        unsigned int idx;
-        unsigned char* ucfb_vaddr = (unsigned char*)gr_framebuffer[0].data;
-        unsigned char* ucbuffer_vaddr = (unsigned char*)gr_draw->data;
-        for (idx = 0 ; idx < (gr_draw->height * gr_draw->row_bytes); idx += 4) {
-            ucfb_vaddr[idx    ] = ucbuffer_vaddr[idx + 2];
-            ucfb_vaddr[idx + 1] = ucbuffer_vaddr[idx + 1];
-            ucfb_vaddr[idx + 2] = ucbuffer_vaddr[idx    ];
-            ucfb_vaddr[idx + 3] = ucbuffer_vaddr[idx + 3];
-        }
-#else
         memcpy(gr_framebuffer[0].data, gr_draw->data,
                gr_draw->height * gr_draw->row_bytes);
-#endif
     }
+
+    setup_variable_screeninfo();
     return gr_draw;
 }
 

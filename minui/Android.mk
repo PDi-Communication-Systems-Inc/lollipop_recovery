@@ -16,10 +16,12 @@ LOCAL_MODULE := libminui
 # ordinary characters in this context).  Strip double-quotes from the
 # value so that either will work.
 
-ifeq ($(subst ",,$(TARGET_RECOVERY_PIXEL_FORMAT)),RGBX_8888)
-  LOCAL_CFLAGS += -DRECOVERY_RGBX
+ifeq ($(subst ",,$(TARGET_RECOVERY_PIXEL_FORMAT)),RGBA_8888)
+$(warning Setting RECOVERY RGBA)
+  LOCAL_CFLAGS += -DRECOVERY_RGBA
 endif
 ifeq ($(subst ",,$(TARGET_RECOVERY_PIXEL_FORMAT)),BGRA_8888)
+$(warning Setting RECOVERY BGRA)
   LOCAL_CFLAGS += -DRECOVERY_BGRA
 endif
 
