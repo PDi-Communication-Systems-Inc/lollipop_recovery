@@ -175,6 +175,11 @@ static void redirect_stdio(const char* filename) {
     freopen(filename, "a", stderr); setbuf(stderr, NULL);
 }
 
+bool is_ro_debuggable() {
+    char value[PROPERTY_VALUE_MAX+1];
+    return (property_get("ro.debuggable", value, NULL) == 1 && value[0] == '1');
+}
+
 // close a file, log an error if the error indicator is set
 static void
 check_and_fclose(FILE *fp, const char *name) {
@@ -1114,9 +1119,12 @@ main(int argc, char **argv) {
         if (status != INSTALL_SUCCESS) {
             ui->Print("Installation aborted.\n");
 
-            char buffer[PROPERTY_VALUE_MAX+1];
-            property_get("ro.build.fingerprint", buffer, "");
-            ui->ShowText(true);
+            // If this is an eng or userdebug build, then automatically
+            // turn the text display on if the script fails so the error
+            // message is visible.
+            if (is_ro_debuggable()) {
+                ui->ShowText(true);
+            }
         }
     } else if (wipe_data) {
         if (device->WipeData()) status = INSTALL_ERROR;
