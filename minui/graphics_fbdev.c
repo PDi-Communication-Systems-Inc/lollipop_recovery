@@ -44,6 +44,7 @@ static GRSurface* gr_draw = NULL;
 static int displayed_buffer;
 
 static struct fb_var_screeninfo vi;
+struct fb_fix_screeninfo fi;
 static int fb_fd = -1;
 
 static minui_backend my_backend = {
@@ -80,39 +81,90 @@ static void set_displayed_framebuffer(unsigned n)
 }
 
 static void dump_variable_screeninfo(){
+     printf("fb0 reports:\n"
+            "  vi.bits_per_pixel = %d\n"
+            "  vi.red.offset   = %3d   .length = %3d\n"
+            "  vi.green.offset = %3d   .length = %3d\n"
+            "  vi.blue.offset  = %3d   .length = %3d\n"
+            "  vi.transp.offset = %3d  .length = %3d\n"
+            "  vi.pixclock = %6d\n"
+            "  vi.xres=%4d vi.yres=%4d\n"
+            "  vi.xres_virutal=%4d vi.yres_virtual=%4d\n"
+            "  vi.xoffset=%4d vi.yoffset=%4d\n"
+            "  vi.nonstd=%3d\n"
+            "  vi.activate=%3d\n"
+            "  vi.height=%4d mm \n vi.width=%4d mm \n"
+            "  vi.left_margin=%4d vi.right_margin=%4d\n"
+            "  vi.upper_margin=%4d vi.lower_margin=%4d\n"
+            "  vi.hsync_len=%4d vi.vsync_len=%4d\n"
+            "  vi.vmode=%3d\n"
+            "  vi.rotate=%3d\n",
+            vi.bits_per_pixel,
+            vi.red.offset, vi.red.length,
+            vi.green.offset, vi.green.length,
+            vi.blue.offset, vi.blue.length,
+            vi.transp.offset, vi.transp.length,
+            vi.pixclock,
+            vi.xres, vi.yres,
+            vi.xres_virtual, vi.yres_virtual,
+            vi.xoffset, vi.yoffset,
+            vi.nonstd,
+            vi.activate,
+            vi.height, vi.width,
+            vi.left_margin, vi.right_margin,
+            vi.upper_margin, vi.lower_margin,
+            vi.hsync_len, vi.vsync_len,
+            vi.vmode,
+            vi.rotate);
 
-    printf("fb0 reports (possibly inaccurate):\n"
-           "  vi.bits_per_pixel = %d\n"
-           "  vi.red.offset   = %3d   .length = %3d\n"
-           "  vi.green.offset = %3d   .length = %3d\n"
-           "  vi.blue.offset  = %3d   .length = %3d\n",
-           vi.bits_per_pixel,
-           vi.red.offset, vi.red.length,
-           vi.green.offset, vi.green.length,
-           vi.blue.offset, vi.blue.length);
-
+       printf("fb0 reports the following fixed info:\n"
+            "   id=%s\n"
+            "   smem_start=0x%lx\n"
+            "   smem_len=%9d\n"
+            "   type=%3d\n"
+            "   type_aux=%3d\n"
+            "   visual=%3d\n"
+            "   xpanstep=%3d ypanstep=%3d\n"
+            "   ywrapstep=%3d\n"
+            "   line_Length=%3d\n"
+            "   mmio_start=0x%lx\n"
+            "   mmio_len=%9d\n"
+            "   accel=%6d\n",
+            fi.id,
+            fi.smem_start,
+            fi.smem_len,
+            fi.type,
+            fi.type_aux,
+            fi.visual,
+            fi.xpanstep, fi.ypanstep,
+            fi.ywrapstep,
+            fi.line_length,
+            fi.mmio_start,
+            fi.mmio_len,
+            fi.accel);
 }
 
 static void setup_variable_screeninfo() {
 
     // for P19 LVDS
 #if defined(RECOVERY_BGRA)
-    printf("Defining RECOVERY_BGRA\n");
-    vi.red.offset     = 16;
-    vi.red.length     = 8;
-    vi.green.offset   = 8;
-    vi.green.length   = 8;
+    printf("Defining RECOVERY_RGB565\n");
+    vi.red.offset     = 11;
+    vi.red.length     = 5;
+    vi.green.offset   = 5;
+    vi.green.length   = 6;
     vi.blue.offset    = 0;
-    vi.blue.length    = 8;
-    vi.transp.offset  = 24;
-    vi.transp.length  = 8;
-    vi.bits_per_pixel = 32;
+    vi.blue.length    = 5;
+    vi.transp.offset  = 0;
+    vi.transp.length  = 0;
+    vi.bits_per_pixel = 16;
     vi.xres_virtual = vi.xres;
     vi.yres_virtual = vi.yres * 2;
-    vi.activate = FB_ACTIVATE_NOW;
+    vi.activate = 0;
+    vi.pixclock = 12843;
 #elif defined(RECOVERY_RGBX)
     // for P14T2 HDMI
-    printf("Defining RECOVERY_RGBA 8888\n");
+    printf("Defining RECOVERY_RGB8888\n");
     vi.red.offset     = 0;
     vi.red.length     = 8;
     vi.green.offset   = 8;
@@ -146,8 +198,6 @@ static void setup_variable_screeninfo() {
 
 static gr_surface fbdev_init(minui_backend* backend) {
     void *bits;
-
-    struct fb_fix_screeninfo fi;
 
     fb_fd = open("/dev/graphics/fb0", O_RDWR);
     if (fb_fd < 0) {
@@ -245,7 +295,6 @@ static gr_surface fbdev_flip(minui_backend* backend __unused) {
         set_displayed_framebuffer(1-displayed_buffer);
     } else {
         // Copy from the in-memory surface to the framebuffer.
-
         memcpy(gr_framebuffer[0].data, gr_draw->data,
                gr_draw->height * gr_draw->row_bytes);
     }
