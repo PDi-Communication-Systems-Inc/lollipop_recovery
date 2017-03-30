@@ -266,12 +266,11 @@ void ScreenRecoveryUI::draw_screen_locked()
         // display from the bottom up, until we hit the top of the
         // screen, the bottom of the menu, or we've displayed the
         // entire text buffer.
-        int ty;
         int row = (text_top+text_rows-1) % text_rows;
         for (int ty = gr_fb_height() - char_height, count = 0;
              ty > y+2 && count < text_rows;
              ty -= char_height, ++count) {
-            gr_text(4, ty, text[row], 0);
+            gr_text(0, ty, text[row], 0);
             --row;
             if (row < 0) row = text_rows-1;
         }
@@ -500,8 +499,7 @@ void ScreenRecoveryUI::Print(const char *fmt, ...)
     // This can get called before ui_init(), so be careful.
     pthread_mutex_lock(&updateMutex);
     if (text_rows > 0 && text_cols > 0) {
-        char *ptr;
-        for (ptr = buf; *ptr != '\0'; ++ptr) {
+        for (char* ptr = buf; *ptr != '\0'; ++ptr) {
             if (*ptr == '\n' || text_col >= text_cols) {
                 text[text_row][text_col] = '\0';
                 text_col = 0;
@@ -541,10 +539,9 @@ void ScreenRecoveryUI::StartMenu(const char* const * headers, const char* const 
 }
 
 int ScreenRecoveryUI::SelectMenu(int sel) {
-    int old_sel;
     pthread_mutex_lock(&updateMutex);
     if (show_menu > 0) {
-        old_sel = menu_sel;
+        int old_sel = menu_sel;
         menu_sel = sel;
 
         // Wrap at top and bottom.
@@ -559,7 +556,6 @@ int ScreenRecoveryUI::SelectMenu(int sel) {
 }
 
 void ScreenRecoveryUI::EndMenu() {
-    int i;
     pthread_mutex_lock(&updateMutex);
     if (show_menu > 0 && text_rows > 0 && text_cols > 0) {
         show_menu = 0;

@@ -77,11 +77,10 @@ static void text_blend(unsigned char* src_p, int src_row_bytes,
                        unsigned char* dst_p, int dst_row_bytes,
                        int width, int height)
 {
-    int i, j;
-    for (j = 0; j < height; ++j) {
+    for (int j = 0; j < height; ++j) {
         unsigned char* sx = src_p;
         unsigned short* px = (unsigned short*)dst_p;
-        for (i = 0; i < width; ++i) {
+        for (int i = 0; i < width; ++i) {
             unsigned char a = *sx++;
             unsigned char vr, vg, vb;
             unsigned short xv = *px;
@@ -107,30 +106,30 @@ static void text_blend(unsigned char* src_p, int src_row_bytes,
 void gr_text(int x, int y, const char *s, int bold)
 {
     GRFont *font = gr_font;
-    unsigned off;
 
-    if (!font->texture) return;
-    if (gr_current_a == 0) return;
+    if (!font->texture || gr_current_a == 0) return;
 
     bold = bold && (font->texture->height != font->cheight);
 
     x += overscan_offset_x;
     y += overscan_offset_y;
 
-    while((off = *s++)) {
-        off -= 32;
+    unsigned char ch;
+    while((ch = *s++)) {
         if (outside(x, y) || outside(x+font->cwidth-1, y+font->cheight-1)) break;
-        if (off < 96) {
 
-            unsigned char* src_p = font->texture->data + (off * font->cwidth) +
-                (bold ? font->cheight * font->texture->row_bytes : 0);
-            unsigned char* dst_p = gr_draw->data + y*gr_draw->row_bytes + x*gr_draw->pixel_bytes;
+        if (ch < ' ' || ch > '~') {
+                ch = '?';
+         }
 
-            text_blend(src_p, font->texture->row_bytes,
-                       dst_p, gr_draw->row_bytes,
-                       font->cwidth, font->cheight);
+         unsigned char* src_p = font->texture->data + ((ch - ' ') * font->cwidth) +
+                                   (bold ? font->cheight * font->texture->row_bytes : 0);
+         unsigned char* dst_p = gr_draw->data + y*gr_draw->row_bytes + x*gr_draw->pixel_bytes;
 
-        }
+         text_blend(src_p, font->texture->row_bytes,
+                    dst_p, gr_draw->row_bytes,
+                    font->cwidth, font->cheight);
+        
         x += font->cwidth;
     }
 }
@@ -166,11 +165,10 @@ void gr_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a
 
 void gr_clear()
 {
-    int x, y;
     unsigned char* px = gr_draw->data;
-    for (y = 0; y < gr_draw->height; ++y) {
+    for (int y = 0; y < gr_draw->height; ++y) {
         unsigned short* sx = (unsigned short*)px;
-        for (x = 0; x < gr_draw->width; ++x) {
+        for (int x = 0; x < gr_draw->width; ++x) {
             *sx = (unsigned short)(((unsigned short)((gr_current_r&0x1f) << 11)) |
                   ((unsigned short)((gr_current_g&0x3f) << 5)) | (gr_current_b&0x1f));
             sx++;

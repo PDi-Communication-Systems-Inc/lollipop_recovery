@@ -12,6 +12,8 @@ LOCAL_WHOLE_STATIC_LIBRARIES += libadf
 
 LOCAL_MODULE := libminui
 
+LOCAL_CFLAGS := -std=gnu11
+
 # This used to compare against values in double-quotes (which are just
 # ordinary characters in this context).  Strip double-quotes from the
 # value so that either will work.
