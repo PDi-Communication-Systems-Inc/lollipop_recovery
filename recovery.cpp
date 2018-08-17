@@ -1144,9 +1144,13 @@ main(int argc, char **argv) {
         copy_logs();
         ui->SetBackground(RecoveryUI::ERROR);
     }
-    Device::BuiltinAction after = shutdown_after ? Device::SHUTDOWN : Device::REBOOT;
+   // skip the option to show the recovery, intead reboot the device
+
+   // Device::BuiltinAction after = shutdown_after ? Device::SHUTDOWN : Device::REBOOT;
+    Device::BuiltinAction after = Device::REBOOT;
     if (status != INSTALL_SUCCESS || ui->IsTextVisible()) {
-        Device::BuiltinAction temp = prompt_and_wait(device, status);
+        //Device::BuiltinAction temp = prompt_and_wait(device, status);
+        Device::BuiltinAction temp = Device::REBOOT;
         if (temp != Device::NO_ACTION) after = temp;
     }
 
